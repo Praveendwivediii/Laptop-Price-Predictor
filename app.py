@@ -1,10 +1,10 @@
 import streamlit as st
-import pickle
+import joblib  # Changed from pickle
 import numpy as np
 
 # import the model
-pipe = pickle.load(open('pipe.pkl','rb'))
-df = pickle.load(open('df.pkl','rb'))
+pipe = joblib.load('pipe.pkl')  # Changed to joblib
+df = joblib.load('df.pkl')      # Changed to joblib
 
 st.title("Laptop Predictor")
 
