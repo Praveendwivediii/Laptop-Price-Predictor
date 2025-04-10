@@ -1,4 +1,5 @@
 streamlit==1.44.1
-scikit-learn==1.3.0  # Must match training version
-numpy==1.24.3
-pandas==2.0.3
+scikit-learn==1.4.2  # Updated version with Python 3.12 support
+numpy==1.26.4        # Python 3.12 compatible version
+pandas==2.2.1        # Add if you're using pandas
+joblib==1.3.2        # Better for model serialization
