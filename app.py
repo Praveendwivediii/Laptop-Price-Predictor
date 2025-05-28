@@ -1,81 +1,64 @@
+import os
 import numpy as np
 import pandas as pd
 import streamlit as st
-import joblib
+from joblib import load
 
-# Load the model and data
-try:
-    pipe = joblib.load('pipe.pkl')
-    df = joblib.load('df.pkl')
-except Exception as e:
-    st.error(f"Error loading model/data files: {e}")
-    st.stop()
+# Debug info (remove after testing)
+st.write("## Debug Info")
+st.write(f"Working directory: {os.getcwd()}")
+st.write(f"Files present: {os.listdir()}")
 
-st.title("Laptop Price Predictor")
-
-# Brand
-company = st.selectbox('Brand', df['Company'].unique())
-
-# Type of laptop
-laptop_type = st.selectbox('Type', df['TypeName'].unique())
-
-# RAM
-ram = st.selectbox('RAM (in GB)', [2, 4, 6, 8, 12, 16, 24, 32, 64])
-
-# Weight
-weight = st.number_input('Weight of the Laptop (in kg)')
-
-# Touchscreen
-touchscreen = st.selectbox('Touchscreen', ['No', 'Yes'])
-
-# IPS Display
-ips = st.selectbox('IPS Display', ['No', 'Yes'])
-
-# Screen size
-screen_size = st.slider('Screen size (in inches)', 10.0, 18.0, 13.0)
-
-# Resolution
-resolution = st.selectbox(
-    'Screen Resolution',
-    ['1920x1080', '1366x768', '1600x900', '3840x2160', '3200x1800', '2880x1800',
-     '2560x1600', '2560x1440', '2304x1440']
-)
-
-# CPU
-cpu = st.selectbox('CPU', df['Cpu brand'].unique())
-
-# HDD
-hdd = st.selectbox('HDD (in GB)', [0, 128, 256, 512, 1024, 2048])
-
-# SSD
-ssd = st.selectbox('SSD (in GB)', [0, 8, 128, 256, 512, 1024])
-
-# GPU
-gpu = st.selectbox('GPU', df['Gpu brand'].unique())
-
-# Operating System
-os = st.selectbox('Operating System', df['os'].unique())
-
-# Predict Button
-if st.button('Predict Price'):
-    # Convert categorical to binary
-    touchscreen = 1 if touchscreen == 'Yes' else 0
-    ips = 1 if ips == 'Yes' else 0
-
-    # Calculate PPI
+@st.cache_resource
+def load_artifacts():
     try:
-        X_res, Y_res = map(int, resolution.split('x'))
-        ppi = ((X_res**2 + Y_res**2) ** 0.5) / screen_size
+        pipe = load('pipe.pkl')
+        df = load('df.pkl')
+        return pipe, df
     except Exception as e:
-        st.error(f"Error calculating PPI: {e}")
+        st.error(f"❌ Error loading artifacts: {str(e)}")
         st.stop()
 
-    # Create query array
-    query = np.array([company, laptop_type, ram, weight, touchscreen, ips, ppi, cpu, hdd, ssd, gpu, os])
-    query = query.reshape(1, 12)
+pipe, df = load_artifacts()
 
+st.title("💻 Laptop Price Predictor")
+
+# Input widgets
+col1, col2 = st.columns(2)
+with col1:
+    company = st.selectbox('Brand', df['Company'].unique())
+    laptop_type = st.selectbox('Type', df['TypeName'].unique())
+    ram = st.selectbox('RAM (GB)', sorted([2, 4, 6, 8, 12, 16, 24, 32, 64]))
+    weight = st.number_input('Weight (kg)', min_value=0.5, max_value=5.0, value=1.5)
+    touchscreen = st.radio('Touchscreen', ['No', 'Yes'], horizontal=True)
+    
+with col2:
+    ips = st.radio('IPS Display', ['No', 'Yes'], horizontal=True)
+    screen_size = st.slider('Screen Size (inches)', 10.0, 18.0, 15.6)
+    resolution = st.selectbox('Resolution', [
+        '1920x1080', '1366x768', '1600x900', '3840x2160', 
+        '3200x1800', '2880x1800', '2560x1600', '2560x1440'
+    ])
+    cpu = st.selectbox('CPU', df['Cpu brand'].unique())
+
+# Storage inputs
+hdd = st.select_slider('HDD (GB)', options=[0, 128, 256, 512, 1024, 2048], value=0)
+ssd = st.select_slider('SSD (GB)', options=[0, 8, 128, 256, 512, 1024], value=256)
+
+# Bottom section
+gpu = st.selectbox('GPU', df['Gpu brand'].unique())
+os_type = st.selectbox('Operating System', df['os'].unique())
+
+if st.button('🚀 Predict Price', type='primary'):
+    # Preprocess inputs
     try:
-        prediction = pipe.predict(query)[0]
-        st.success(f"The predicted price of this configuration is ₹{int(np.exp(prediction))}")
+        ppi = ((int(resolution.split('x')[0])**2 + int(resolution.split('x')[1])**2)**0.5)/screen_size
+        query = np.array([company, laptop_type, ram, weight, 
+                         int(touchscreen == 'Yes'), int(ips == 'Yes'),
+                         ppi, cpu, hdd, ssd, gpu, os_type]).reshape(1, -1)
+        
+        prediction = np.exp(pipe.predict(query)[0])
+        st.success(f"### Predicted Price: ₹{int(prediction):,}")
+        
     except Exception as e:
-        st.error(f"Prediction failed: {e}")
+        st.error(f"⚠️ Prediction failed: {str(e)}")
